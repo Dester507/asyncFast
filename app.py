@@ -29,6 +29,15 @@ async def async_add_user():
     return {"engine": engine}
 
 
+async def delete_info(session, username):
+    user = session.query(User).filter(User.username == username).first()
+    if user:
+        session.query(Taxes).filter(Taxes.username == username).first().delete()
+        return True
+    else:
+        return False
+
+
 @app.post("/add")
 async def add_user(user: UserAPI, taxes: TaxesAPI, eng: dict = Depends(async_add_user)):
     async with AsyncSession(eng['engine']) as session:
@@ -39,15 +48,12 @@ async def add_user(user: UserAPI, taxes: TaxesAPI, eng: dict = Depends(async_add
     return {"Result": "Good"}
 
 
-@app.get("/remove/{username}")
+@app.post("/delete{username}")
 async def remove_user(username: str, eng: dict = Depends(async_add_user)):
     async with AsyncSession(eng['engine']) as session:
         async with session.begin():
-            user = session.query(User).filter(User.username == username).first()
-            if user:
-                session.query(Taxes).filter(Taxes.username == user.username).first().delete()
-                session.delete(user)
-            else:
+            status = await session.run_sync(delete_info, username)
+            if status is False:
                 return {"Error": "User with this username does not exists"}
         await session.commit()
     return {"Result": "Good"}
